@@ -31,6 +31,65 @@ This package will provide everything needed to run `cloud` and `site` stack.
 ### Installation
 - Run `./install.sh` and follow the steps to install necessary dependencies. 
 
+### Topology diagrams
+
+Every dashboard carries two topology panels at the top, selected by `topdiagrams`
+in `rtmon.yaml` (`Mermaid`, `Archify`, or `Both` - the default):
+
+- **Mermaid** renders inline through the `jdbranham-diagram-panel` plugin and
+  draws the complete graph: a node per switch port, VLAN, address and BGP peer.
+- **Archify** draws the same path at device level, with that detail moved into
+  cards beside it, and is interactive - focus views per site, an animated trace
+  along the path, and PNG export.
+
+Whichever is selected, the Mermaid walk always runs: it is what builds the path
+model both diagrams are drawn from.
+
+#### Archify prerequisites
+
+Archify renders to a self-contained HTML file rather than to panel JSON, because
+its runtime shell alone is 760 KB before any diagram is drawn - so every
+dashboard would carry most of a megabyte of identical payload into Grafana's
+database. RTMon builds the typed IR and POSTs it to the
+[rtmon-archify](https://github.com/groundsada/rtmon-archify) sidecar, which
+validates, renders, attributes and serves one gzipped artifact per dashboard;
+the dashboard's `text` panel embeds it in a sandboxed `<iframe>`.
+
+The sidecar is a **separate container in the same pod as RTMon**. It keeps the
+Archify runtime and its third-party notices out of this repository and this
+container image, and it is what listens on the network port. RTMon is an HTTP
+client for it, and listens on nothing itself. Three things have to be set up:
+
+1. **Run the sidecar and share the token.** Deploy the sidecar image, and set
+   `archify.sidecar_url` and `archify.token` in `rtmon.yaml` to where it lives
+   and the shared secret. An unconfigured sidecar_url skips the panel with a
+   warning; a wrong token makes every render fail with the same warning.
+
+2. **Point the browser at it.** `archify.diagram_url_base` is whatever URL a
+   browser reaches the sidecar on - the Service, Ingress and TLS in front of it
+   are the deployment's, not RTMon's. While this is unset the panel is skipped
+   and the dashboard says so.
+
+3. **Allow the iframe.** Grafana must run with
+
+   ```ini
+   [panels]
+   disable_sanitize_html = true
+   ```
+
+   or `GF_PANELS_DISABLE_SANITIZE_HTML=true`. Without it Grafana strips the
+   iframe and the panel renders empty.
+
+   **This setting is org-wide, not per-panel.** Turning it on re-enables raw
+   HTML for every text panel in that Grafana, including ones RTMon did not
+   create. If that is not acceptable for your deployment, set
+   `topdiagrams: Mermaid` - the Mermaid panel needs no plugin beyond the diagram
+   panel it already uses, and shows the full topology.
+
+If the sidecar is unreachable the panel is skipped with a warning in the
+dashboard's "Graph Generation Warnings" row; nothing else is affected, and the
+Mermaid diagram is still complete.
+
 ### Running
 - `Cloud` stack consists of Grafana, Prometheus, Pushgateway, and Script Exporter containers. 
 - Run `./start.sh` to deploy `Cloud` stack.

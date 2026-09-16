@@ -1,0 +1,53 @@
+# Builds a sense-rtmon image from *this* fork's branch and pushes it to
+# ghcr.io/groundsada, so a dev/demo instance can pull a per-branch image
+# instead of publishing to the shared sdnsense/sense-rtmon namespace.
+#
+# Kept separate from the upstream docker.yaml on purpose: no changes to the
+# repo's CI, and this only exists while the fork runs the experiment. The
+# image tag is a buildtag, and the same buildtag can name the branch channels
+# (e.g. archify-dev) that a compose file references.
+name: RTMon dev image
+
+on:
+  workflow_dispatch:
+    inputs:
+      buildtag:
+        description: "Image tag (e.g. archify-dev)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # Wildcard-perms: this branch is on the fork, and the ref is the branch
+      # that ran this workflow. RTMON_REF tells the Dockerfile which branch of
+      # the fork to clone.
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Log in to ghcr
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        env:
+          REF: ${{ github.ref_name }}
+          BUILD_TAG: ${{ github.event.inputs.buildtag }}
+        run: |
+          cd autogole-api/packaging
+          docker build --platform linux/amd64 \
+            --build-arg RTMON_REPO=groundsada/sense-rtmon \
+            --build-arg RTMON_BRANCH="$REF" \
+            -t "ghcr.io/groundsada/sense-rtmon:${BUILD_TAG}-$(date +%Y%m%d)" .
+          docker push "ghcr.io/groundsada/sense-rtmon:${BUILD_TAG}-$(date +%Y%m%d)"
+          docker tag "ghcr.io/groundsada/sense-rtmon:${BUILD_TAG}-$(date +%Y%m%d)" "ghcr.io/groundsada/sense-rtmon:${BUILD_TAG}"
+          docker push "ghcr.io/groundsada/sense-rtmon:${BUILD_TAG}"

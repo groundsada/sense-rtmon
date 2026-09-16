@@ -4,6 +4,13 @@ for fname in $(git diff --name-only); do
         echo "Skipping $fname (deleted or not a file)"
         continue
     fi
+    # src/templates holds exported Grafana dashboard JSON containing REPLACEME
+    # placeholders; prettier -w rewriting them is churn.
+    if [[ $fname == */src/templates/* ]]
+    then
+        echo "Skipping $fname (Grafana template JSON)"
+        continue
+    fi
     if [[ $fname == *.py ]]
     then
         echo "Checking $fname with python linters"

@@ -8,6 +8,8 @@ FROM opensciencegrid/software-base:24-el9-release
 # here rather than silently disabled. See also .trivyignore.
 #checkov:skip=CKV_DOCKER_3:supervisord runs as root; see the comment above
 
+# graphviz and the icons below belong to the abandoned python-diagrams
+# prototype in test/ and are unrelated; removing those is its own cleanup.
 # hadolint ignore=DL3033
 RUN yum -y install wget epel-release && \
     yum -y install git python3 python3-pyyaml python3-devel python3-pip gcc openssl-devel cronie python3-pyOpenSSL fetch-crl graphviz && \
@@ -28,8 +30,12 @@ RUN pip3 install --no-cache-dir --upgrade setuptools==58.2.0 wheel==0.37.0 && \
 # exactly the production build; a test image is built with
 # --build-arg RTMON_BRANCH=<branch>.
 ARG RTMON_BRANCH=master
+# Source repository, for building a test image from a fork rather than from
+# upstream. Defaults to upstream, so a production build is unchanged; a fork
+# build is --build-arg RTMON_REPO=<owner>/sense-rtmon.
+ARG RTMON_REPO=esnet/sense-rtmon
 WORKDIR /opt/sense-rtmon
-RUN git clone --branch "${RTMON_BRANCH}" --single-branch https://github.com/esnet/sense-rtmon.git .
+RUN git clone --branch "${RTMON_BRANCH}" --single-branch "https://github.com/${RTMON_REPO}.git" .
 WORKDIR /opt/sense-rtmon/autogole-api
 # hadolint ignore=DL3013
 RUN pip3 install --no-cache-dir -r requirements.txt && \

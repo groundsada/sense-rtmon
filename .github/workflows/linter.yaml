@@ -63,7 +63,9 @@ jobs:
           # BIOME_LINT stays enabled to still catch genuinely malformed JSON.
           VALIDATE_BIOME_FORMAT: false
           # Matched against the in-container absolute path, so it needs the
-          # leading wildcard.
+          # leading wildcard. src/templates holds exported Grafana JSON with
+          # REPLACEME placeholders; BIOME_LINT (the format check) stays off for
+          # them because reformatting is churn, BIOME_LINT the linter stays on.
           FILTER_REGEX_EXCLUDE: .*/autogole-api/src/templates/.*
           # To report GitHub Actions status checks
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
