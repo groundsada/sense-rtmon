@@ -122,6 +122,11 @@ archify:
   # Ingress and TLS the deployment puts in front of it. There is no sensible
   # default: while this is unset the panel is skipped and says so, rather
   # than embedding an iframe pointing at somewhere that does not exist.
+  #
+  # Keep the trailing /diagrams. Only "<uid>.html" is appended, and the sidecar
+  # serves nothing at its root, so dropping the segment gives an iframe that
+  # 404s while the render still reports success - an empty panel and a clean
+  # log, which is the slowest kind of misconfiguration to notice.
   diagram_url_base: "https://REPLACEME/diagrams"
   # standard or showcase. showcase turns on the renderer's stricter geometry
   # gates, which hand-authored diagrams can meet and generated ones often
