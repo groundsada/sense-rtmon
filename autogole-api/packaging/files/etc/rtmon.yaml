@@ -74,6 +74,9 @@ dashboard_retention:
 # Read-only HTTP API serving the SiteRM debug action results RTMon caches, so
 # Grafana can chart them through the Infinity datasource and, in time, the SENSE
 # dashboard can read them without talking to every site itself.
+# /api/v1/instances also lists the sites and SITE:device switches each path
+# crosses, so a caller holding only an instance UUID can find what to ask
+# Prometheus about (bgp_session_state is keyed on sitename and hostname).
 # Off unless http_api_enabled is true: an upgrade should not open a port.
 # With neither http_api_token nor http_api_oidc_issuer set, every request is
 # refused - being unreachable from outside the cluster is not authentication.

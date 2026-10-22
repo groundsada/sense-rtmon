@@ -166,13 +166,50 @@ class ResultsStore:
             "alias": fout.get("instance", {}).get("alias", ""),
         }
 
-    def instances(self):
-        """One summary per path RTMon is monitoring."""
+    @staticmethod
+    def _devices(fout):
+        """(sites, switches) the path crosses, read off the stored manifest.
+
+        Ports carry Node as ``SITE:device``, the same split the switch rows and
+        their BGP panels are built from, so a reader holding a sitename and a
+        hostname from here asks Prometheus exactly what the dashboard asks. A
+        Node with no colon names no SiteRM device and is left out rather than
+        guessed at. Ordered by first appearance, which is path order.
+        """
+        sites, switches = [], []
+        for port in (fout.get("manifest") or {}).get("Ports", []) or []:
+            sitename, sep, hostname = str(port.get("Node", "")).partition(":")
+            if sep and sitename and hostname:
+                if sitename not in sites:
+                    sites.append(sitename)
+                switch = {"sitename": sitename, "hostname": hostname}
+                if switch not in switches:
+                    switches.append(switch)
+            for host in port.get("Host", []) or []:
+                site, sep, _name = str(host.get("Name", "")).partition(":")
+                if sep and site and site not in sites:
+                    sites.append(site)
+        return sites, switches
+
+    def instances(self, filters=None):
+        """One summary per path RTMon is monitoring, with the sites and
+        switches it crosses, so a caller holding only the instance UUID (DMM
+        publishes one per rule) can find the devices to ask about."""
+        filters = filters or {}
         out = []
         for _, fout in self._statefiles():
             row = self._describe(fout)
+            if filters.get("instance") and filters["instance"] != row["instance"]:
+                continue
             row["state"] = fout.get("state", "")
             row["actions"] = sorted(fout.get("action_results", {}))
+            if filters.get("action") and filters["action"] not in row["actions"]:
+                continue
+            row["sites"], row["switches"] = self._devices(fout)
+            if filters.get("sitename") and filters["sitename"] not in row["sites"]:
+                continue
+            if filters.get("state") and filters["state"] != row["state"]:
+                continue
             out.append(row)
         return sorted(out, key=lambda item: item["instance"])
 
@@ -296,10 +333,8 @@ def makeHandler(store, auth, logger):
                 self.end_headers()
                 return
             logger.debug("results-api serving %s to %s", path, identity)
-            if path == "/api/v1/instances":
-                self._respond(200, store.instances())
-                return
-            served = {"/api/v1/results": store.results,
+            served = {"/api/v1/instances": store.instances,
+                      "/api/v1/results": store.results,
                       "/api/v1/sitermwarnings": store.sitermwarnings}
             if path in served:
                 filters, unknown = self._filters(query)
